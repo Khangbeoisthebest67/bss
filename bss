@@ -1,0 +1,1526 @@
+local v2, str, str2, pos, str3, v3, player, v4, v5, v6, str4, v7, tbl, tbl2, v8, num, isA, cframe, player2
+local FieldInfo, LocInfo
+--==================== KhangUI : Sidebar ====================--
+-- Giao diện kiểu Khang Hub: sidebar bên trái, nội dung bên phải,
+-- Toggle / Slider / Bind / Dropdown / Button / Label.
+local KhangUI = {}
+do
+    local TweenService = game:GetService("TweenService")
+    local RealUIS = game:GetService("UserInputService")
+    local conns = {}
+    KhangUI.Conns = conns
+    local function tracked(signal)
+        return {Connect = function(_, fn)
+            local c = signal:Connect(fn)
+            table.insert(conns, c)
+            return c
+        end}
+    end
+    local UIS = {
+        InputBegan = tracked(RealUIS.InputBegan),
+        InputChanged = tracked(RealUIS.InputChanged),
+        InputEnded = tracked(RealUIS.InputEnded),
+    }
+    local CoreGui = game:GetService("CoreGui")
+
+    local Theme = {
+        Window  = Color3.fromRGB(12, 12, 14),
+        Side    = Color3.fromRGB(18, 18, 20),
+        Content = Color3.fromRGB(6, 6, 7),
+        Row     = Color3.fromRGB(24, 24, 26),
+        RowHover= Color3.fromRGB(32, 32, 35),
+        Accent  = Color3.fromRGB(104, 196, 232),
+        Title   = Color3.fromRGB(86, 168, 232),
+        Text    = Color3.fromRGB(222, 222, 226),
+        Sub     = Color3.fromRGB(140, 140, 148),
+        Off     = Color3.fromRGB(44, 44, 48),
+        Close   = Color3.fromRGB(214, 62, 62),
+        Font    = Enum.Font.Gotham,
+        FontB   = Enum.Font.GothamBold,
+    }
+
+    local function new(class, props, parent)
+        local obj = Instance.new(class)
+        for k, v in pairs(props or {}) do obj[k] = v end
+        if parent then obj.Parent = parent end
+        return obj
+    end
+
+    local function corner(parent, r)
+        return new("UICorner", {CornerRadius = UDim.new(0, r or 6)}, parent)
+    end
+
+    local function tween(obj, props, t)
+        TweenService:Create(obj, TweenInfo.new(t or 0.15, Enum.EasingStyle.Quad), props):Play()
+    end
+
+    local function label(parent, text, size, color, font, align)
+        return new("TextLabel", {
+            BackgroundTransparency = 1,
+            Text = text,
+            TextSize = size or 14,
+            TextColor3 = color or Theme.Text,
+            Font = font or Theme.Font,
+            TextXAlignment = align or Enum.TextXAlignment.Left,
+        }, parent)
+    end
+
+    local function makeDraggable(handle, target)
+        local dragging, dragStart, startPos
+        handle.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1
+                or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPos = target.Position
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then dragging = false end
+                end)
+            end
+        end)
+        UIS.InputChanged:Connect(function(input)
+            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+                or input.UserInputType == Enum.UserInputType.Touch) then
+                local d = input.Position - dragStart
+                target.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X,
+                                            startPos.Y.Scale, startPos.Y.Offset + d.Y)
+            end
+        end)
+    end
+
+    ---------------------------------------------------------------- Notify
+    local notifyHolder
+    function KhangUI.Notify(title, text, duration)
+        task.spawn(function()
+            if not notifyHolder or not notifyHolder.Parent then
+                local old = CoreGui:FindFirstChild("NotifyGui")
+                if old then old:Destroy() end
+                local gui = new("ScreenGui", {Name = "NotifyGui", ResetOnSpawn = false}, CoreGui)
+                notifyHolder = new("Frame", {
+                    BackgroundTransparency = 1,
+                    AnchorPoint = Vector2.new(1, 1),
+                    Position = UDim2.new(1, -16, 1, -16),
+                    Size = UDim2.new(0, 260, 1, -32),
+                }, gui)
+                new("UIListLayout", {
+                    Padding = UDim.new(0, 8),
+                    VerticalAlignment = Enum.VerticalAlignment.Bottom,
+                    HorizontalAlignment = Enum.HorizontalAlignment.Right,
+                    SortOrder = Enum.SortOrder.LayoutOrder,
+                }, notifyHolder)
+            end
+            local card = new("Frame", {
+                BackgroundColor3 = Theme.Window,
+                BackgroundTransparency = 1,
+                Size = UDim2.new(1, 0, 0, 56),
+            }, notifyHolder)
+            corner(card, 8)
+            local bar = new("Frame", {BackgroundColor3 = Theme.Accent, BackgroundTransparency = 1,
+                Size = UDim2.new(0, 3, 1, -16), Position = UDim2.new(0, 8, 0, 8)}, card)
+            corner(bar, 2)
+            local t1 = label(card, tostring(title), 14, Theme.Title, Theme.FontB)
+            t1.Position = UDim2.new(0, 20, 0, 8); t1.Size = UDim2.new(1, -28, 0, 18); t1.TextTransparency = 1
+            local t2 = label(card, tostring(text), 13, Theme.Text)
+            t2.Position = UDim2.new(0, 20, 0, 28); t2.Size = UDim2.new(1, -28, 0, 18); t2.TextTransparency = 1
+            tween(card, {BackgroundTransparency = 0}, 0.3)
+            tween(bar, {BackgroundTransparency = 0}, 0.3)
+            tween(t1, {TextTransparency = 0}, 0.3)
+            tween(t2, {TextTransparency = 0}, 0.3)
+            task.wait(duration or 3)
+            tween(card, {BackgroundTransparency = 1}, 0.3)
+            tween(bar, {BackgroundTransparency = 1}, 0.3)
+            tween(t1, {TextTransparency = 1}, 0.3)
+            tween(t2, {TextTransparency = 1}, 0.3)
+            task.wait(0.35)
+            card:Destroy()
+        end)
+    end
+
+    function KhangUI.Unload()
+        for _, c in ipairs(conns) do pcall(function() c:Disconnect() end) end
+        table.clear(conns)
+        for _, n in ipairs({"KhangHub", "NotifyGui", "DogentScreenGui"}) do
+            local g = CoreGui:FindFirstChild(n)
+            if g then g:Destroy() end
+        end
+    end
+
+    ---------------------------------------------------------------- Window
+    function KhangUI.Create(title)
+        local old = CoreGui:FindFirstChild("KhangHub")
+        if old then old:Destroy() end
+
+        local gui = new("ScreenGui", {
+            Name = "KhangHub",
+            ResetOnSpawn = false,
+            ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+        }, CoreGui)
+
+        local main = new("Frame", {
+            Name = "Main",
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.new(0.5, 0, 0.5, 0),
+            Size = UDim2.new(0, 675, 0, 475),
+            BackgroundColor3 = Theme.Window,
+            BorderSizePixel = 0,
+            ClipsDescendants = true,
+        }, gui)
+        corner(main, 8)
+
+        -- tự thu nhỏ trên màn hình nhỏ / điện thoại
+        local scale = new("UIScale", {}, main)
+        local function fit()
+            local cam = workspace.CurrentCamera
+            if not cam then return end
+            local vp = cam.ViewportSize
+            scale.Scale = math.clamp(math.min(vp.X / 720, vp.Y / 520), 0.5, 1)
+        end
+        fit()
+        if workspace.CurrentCamera then
+            workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fit)
+        end
+
+        -- thanh tiêu đề
+        local bar = new("Frame", {
+            Name = "TitleBar", BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 48),
+        }, main)
+        local ttl = label(bar, title or "Khang Hub", 17, Theme.Title, Theme.FontB)
+        ttl.Position = UDim2.new(0, 18, 0, 0)
+        ttl.Size = UDim2.new(1, -80, 1, 0)
+
+        local close = new("TextButton", {
+            Name = "Close",
+            Position = UDim2.new(1, -40, 0, 8),
+            Size = UDim2.new(0, 32, 0, 32),
+            BackgroundColor3 = Theme.Close,
+            AutoButtonColor = false,
+            Text = "x",
+            TextColor3 = Color3.new(1, 1, 1),
+            TextSize = 16,
+            Font = Theme.FontB,
+        }, bar)
+        corner(close, 6)
+        close.MouseEnter:Connect(function() tween(close, {BackgroundColor3 = Color3.fromRGB(235, 82, 82)}) end)
+        close.MouseLeave:Connect(function() tween(close, {BackgroundColor3 = Theme.Close}) end)
+        close.MouseButton1Click:Connect(function() gui.Enabled = false end)
+        makeDraggable(bar, main)
+
+        -- sidebar
+        local side = new("Frame", {
+            Name = "Sidebar", Position = UDim2.new(0, 0, 0, 48),
+            Size = UDim2.new(0, 163, 1, -48),
+            BackgroundColor3 = Theme.Side, BorderSizePixel = 0,
+        }, main)
+        new("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)}, side)
+        new("UIListLayout", {Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder}, side)
+
+        -- vùng nội dung
+        local content = new("Frame", {
+            Name = "Content", Position = UDim2.new(0, 163, 0, 48),
+            Size = UDim2.new(1, -163, 1, -48),
+            BackgroundColor3 = Theme.Content, BorderSizePixel = 0,
+        }, main)
+
+        local Window = {Tabs = {}, Current = nil, Gui = gui}
+
+        local function selectTab(tab)
+            if Window.Current == tab then return end
+            if Window.Current then
+                Window.Current.Page.Visible = false
+                tween(Window.Current.TabBtn, {BackgroundTransparency = 1, TextColor3 = Theme.Sub})
+            end
+            Window.Current = tab
+            tab.Page.Visible = true
+            tween(tab.TabBtn, {BackgroundTransparency = 0, TextColor3 = Color3.new(1, 1, 1)})
+        end
+
+        function Window:NewTab(name, _icon)
+            local btn = new("TextButton", {
+                Name = name,
+                Size = UDim2.new(1, 0, 0, 38),
+                BackgroundColor3 = Theme.Accent,
+                BackgroundTransparency = 1,
+                AutoButtonColor = false,
+                Text = name,
+                TextColor3 = Theme.Sub,
+                TextSize = 14,
+                Font = Theme.Font,
+                LayoutOrder = #Window.Tabs,
+            }, side)
+            corner(btn, 6)
+
+            local page = new("ScrollingFrame", {
+                Name = name,
+                Visible = false,
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                Size = UDim2.new(1, 0, 1, 0),
+                CanvasSize = UDim2.new(0, 0, 0, 0),
+                AutomaticCanvasSize = Enum.AutomaticSize.Y,
+                ScrollBarThickness = 3,
+                ScrollBarImageColor3 = Theme.Off,
+            }, content)
+            new("UIPadding", {
+                PaddingTop = UDim.new(0, 12), PaddingBottom = UDim.new(0, 12),
+                PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 14),
+            }, page)
+            new("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, page)
+
+            local Tab = {TabBtn = btn, Page = page, _order = 0}
+            table.insert(Window.Tabs, Tab)
+
+            btn.MouseButton1Click:Connect(function() selectTab(Tab) end)
+            btn.MouseEnter:Connect(function()
+                if Window.Current ~= Tab then btn.TextColor3 = Theme.Text end
+            end)
+            btn.MouseLeave:Connect(function()
+                if Window.Current ~= Tab then btn.TextColor3 = Theme.Sub end
+            end)
+
+            local function nextOrder()
+                Tab._order = Tab._order + 1
+                return Tab._order
+            end
+            local function row(height)
+                local r = new("Frame", {
+                    Size = UDim2.new(1, 0, 0, height or 42),
+                    BackgroundColor3 = Theme.Row,
+                    BorderSizePixel = 0,
+                    LayoutOrder = nextOrder(),
+                }, page)
+                corner(r, 6)
+                return r
+            end
+            local function rowTitle(r, text)
+                local l = label(r, text, 14, Theme.Text)
+                l.Position = UDim2.new(0, 16, 0, 0)
+                l.Size = UDim2.new(1, -100, 0, 42)
+                return l
+            end
+
+            function Tab:Section(text)
+                local l = label(page, string.upper(text), 12, Theme.Title, Theme.FontB)
+                l.Size = UDim2.new(1, 0, 0, 22)
+                l.LayoutOrder = nextOrder()
+                return l
+            end
+
+            function Tab:TextBox(text)
+                local r = row(36)
+                local l = rowTitle(r, text)
+                l.Size = UDim2.new(1, -32, 1, 0)
+                l.TextColor3 = Theme.Sub
+                return {Set = function(_, t) l.Text = t end}
+            end
+            Tab.Label = Tab.TextBox
+
+            function Tab:Button(text, callback)
+                local r = row(42)
+                local b = new("TextButton", {
+                    BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, 0),
+                    Text = "", AutoButtonColor = false,
+                }, r)
+                local l = rowTitle(r, text)
+                local arrow = label(r, ">", 14, Theme.Sub, Theme.FontB, Enum.TextXAlignment.Right)
+                arrow.Position = UDim2.new(1, -34, 0, 0); arrow.Size = UDim2.new(0, 20, 1, 0)
+                b.MouseEnter:Connect(function() tween(r, {BackgroundColor3 = Theme.RowHover}) end)
+                b.MouseLeave:Connect(function() tween(r, {BackgroundColor3 = Theme.Row}) end)
+                b.MouseButton1Click:Connect(function()
+                    tween(r, {BackgroundColor3 = Theme.Accent}, 0.08)
+                    task.delay(0.12, function() tween(r, {BackgroundColor3 = Theme.RowHover}) end)
+                    if callback then task.spawn(callback) end
+                end)
+            end
+
+            function Tab:Toggle(text, default, callback)
+                local r = row(42)
+                rowTitle(r, text)
+                local sw = new("Frame", {
+                    Position = UDim2.new(1, -58, 0.5, -11), Size = UDim2.new(0, 42, 0, 22),
+                    BackgroundColor3 = Theme.Off, BorderSizePixel = 0,
+                }, r)
+                corner(sw, 11)
+                local knob = new("Frame", {
+                    Position = UDim2.new(0, 3, 0.5, -8), Size = UDim2.new(0, 16, 0, 16),
+                    BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0,
+                }, sw)
+                corner(knob, 8)
+                local state = false
+                local function render(v)
+                    state = v
+                    tween(sw, {BackgroundColor3 = v and Theme.Accent or Theme.Off})
+                    tween(knob, {Position = v and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)})
+                end
+                local b = new("TextButton", {
+                    BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, 0), Text = "",
+                }, r)
+                b.MouseButton1Click:Connect(function()
+                    render(not state)
+                    if callback then task.spawn(callback, state) end
+                end)
+                if default then render(true) end
+                return {Set = function(_, v) render(v and true or false) if callback then task.spawn(callback, state) end end}
+            end
+
+            function Tab:Slider(text, default, min, max, _unused, callback)
+                min = min or 0; max = max or 100
+                local value = math.clamp(default or min, min, max)
+                local r = row(60)
+                local l = label(r, text, 14, Theme.Text)
+                l.Position = UDim2.new(0, 16, 0, 8); l.Size = UDim2.new(1, -100, 0, 20)
+                local v = label(r, tostring(value), 12, Theme.Sub, Theme.Font, Enum.TextXAlignment.Right)
+                v.Position = UDim2.new(1, -66, 0, 8); v.Size = UDim2.new(0, 50, 0, 20)
+
+                local hit = new("TextButton", {
+                    Position = UDim2.new(0, 16, 0, 34), Size = UDim2.new(1, -32, 0, 20),
+                    BackgroundTransparency = 1, Text = "", AutoButtonColor = false,
+                }, r)
+                local track = new("Frame", {
+                    Position = UDim2.new(0, 0, 0.5, -2), Size = UDim2.new(1, 0, 0, 4),
+                    BackgroundColor3 = Theme.Off, BorderSizePixel = 0,
+                }, hit)
+                corner(track, 2)
+                local fill = new("Frame", {
+                    Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = Theme.Accent, BorderSizePixel = 0,
+                }, track)
+                corner(fill, 2)
+                local knob = new("Frame", {
+                    AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, 0, 0.5, 0),
+                    Size = UDim2.new(0, 12, 0, 12), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0,
+                }, fill)
+                corner(knob, 6)
+
+                local function setValue(val, fire)
+                    val = math.clamp(math.floor(val + 0.5), min, max)
+                    value = val
+                    v.Text = tostring(val)
+                    fill.Size = UDim2.new((val - min) / math.max(max - min, 1), 0, 1, 0)
+                    if fire and callback then task.spawn(callback, val) end
+                end
+                setValue(value, false)
+
+                local dragging = false
+                local function fromInput(input)
+                    local a = (input.Position.X - track.AbsolutePosition.X) / math.max(track.AbsoluteSize.X, 1)
+                    setValue(min + math.clamp(a, 0, 1) * (max - min), true)
+                end
+                hit.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1
+                        or input.UserInputType == Enum.UserInputType.Touch then
+                        dragging = true
+                        fromInput(input)
+                    end
+                end)
+                UIS.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1
+                        or input.UserInputType == Enum.UserInputType.Touch then
+                        dragging = false
+                    end
+                end)
+                UIS.InputChanged:Connect(function(input)
+                    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+                        or input.UserInputType == Enum.UserInputType.Touch) then
+                        fromInput(input)
+                    end
+                end)
+                return {Set = function(_, val) setValue(val, true) end}
+            end
+
+            function Tab:KeyBind(text, default, callback)
+                local key = default
+                local listening = false
+                local r = row(42)
+                rowTitle(r, text)
+                local b = new("TextButton", {
+                    Position = UDim2.new(1, -124, 0.5, -14), Size = UDim2.new(0, 108, 0, 28),
+                    BackgroundColor3 = Theme.Off, AutoButtonColor = false,
+                    Text = key and key.Name or "None",
+                    TextColor3 = Theme.Text, TextSize = 13, Font = Theme.Font,
+                }, r)
+                corner(b, 5)
+                b.MouseButton1Click:Connect(function()
+                    listening = true
+                    b.Text = "..."
+                end)
+                UIS.InputBegan:Connect(function(input, processed)
+                    if listening then
+                        if input.UserInputType == Enum.UserInputType.Keyboard then
+                            listening = false
+                            if input.KeyCode == Enum.KeyCode.Escape then
+                                key = nil
+                                b.Text = "None"
+                            else
+                                key = input.KeyCode
+                                b.Text = key.Name
+                            end
+                        end
+                        return
+                    end
+                    if key and not processed and input.KeyCode == key then
+                        if callback then task.spawn(callback) end
+                    end
+                end)
+            end
+
+            function Tab:DropDown(text, list, _reset, callback, defaultText)
+                local container = new("Frame", {
+                    Size = UDim2.new(1, 0, 0, 42),
+                    BackgroundColor3 = Theme.Row, BorderSizePixel = 0,
+                    ClipsDescendants = true, LayoutOrder = nextOrder(),
+                }, page)
+                corner(container, 6)
+                local head = new("TextButton", {
+                    BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 42), Text = "",
+                }, container)
+                local t = label(head, text, 14, Theme.Text)
+                t.Position = UDim2.new(0, 16, 0, 0); t.Size = UDim2.new(0.5, -16, 1, 0)
+                local sel = label(head, defaultText or "Select  v", 13, Theme.Sub, Theme.Font, Enum.TextXAlignment.Right)
+                sel.Position = UDim2.new(0.4, 0, 0, 0); sel.Size = UDim2.new(0.6, -16, 1, 0)
+
+                local listFrame = new("ScrollingFrame", {
+                    Position = UDim2.new(0, 8, 0, 46), Size = UDim2.new(1, -16, 1, -52),
+                    BackgroundTransparency = 1, BorderSizePixel = 0,
+                    ScrollBarThickness = 3, ScrollBarImageColor3 = Theme.Off,
+                    CanvasSize = UDim2.new(0, 0, 0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y,
+                }, container)
+                new("UIListLayout", {Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder}, listFrame)
+
+                local open = false
+                local count = 0
+                local function resize()
+                    local h = 42
+                    if open then h = 42 + math.min(count * 31 + 10, 190) end
+                    tween(container, {Size = UDim2.new(1, 0, 0, h)}, 0.18)
+                end
+                head.MouseButton1Click:Connect(function() open = not open resize() end)
+
+                local obj = {}
+                function obj:SetList(items)
+                    for _, c in ipairs(listFrame:GetChildren()) do
+                        if c:IsA("TextButton") then c:Destroy() end
+                    end
+                    count = 0
+                    for i, item in ipairs(items) do
+                        count = count + 1
+                        local o = new("TextButton", {
+                            Size = UDim2.new(1, -4, 0, 28),
+                            BackgroundColor3 = Theme.Off, BackgroundTransparency = 0.4,
+                            AutoButtonColor = false, Text = tostring(item),
+                            TextColor3 = Theme.Text, TextSize = 13, Font = Theme.Font,
+                            LayoutOrder = i,
+                        }, listFrame)
+                        corner(o, 5)
+                        o.MouseEnter:Connect(function() tween(o, {BackgroundTransparency = 0}) end)
+                        o.MouseLeave:Connect(function() tween(o, {BackgroundTransparency = 0.4}) end)
+                        o.MouseButton1Click:Connect(function()
+                            sel.Text = tostring(item)
+                            open = false
+                            resize()
+                            if callback then task.spawn(callback, item) end
+                        end)
+                    end
+                    resize()
+                end
+                obj:SetList(list or {})
+                return obj
+            end
+
+            if not Window.Current then selectTab(Tab) end
+            return Tab
+        end
+
+        return Window
+    end
+end
+
+UI = KhangUI.Create("Khang Hub")
+Notify = KhangUI.Notify
+local aliveId = (getgenv().KhangAlive or 0) + 1
+getgenv().KhangAlive = aliveId
+local function try(name, fn)
+    local ok, err = pcall(fn)
+    if not ok then
+        warn("[KhangHub] " .. name .. " loi: " .. tostring(err))
+        Notify("Khang Hub - loi " .. name, tostring(err), 10)
+    end
+    return ok
+end
+--==================== end KhangUI ====================--
+repeat
+    v5 = task
+    v5 = v5.wait
+    v5()
+    v5 = game
+    v6 = v5
+    v5 = v5.IsLoaded
+    v5 = v5(v6)
+until v5
+try("init", function()
+v5 = game
+v5 = v5.Players
+v5 = v5.LocalPlayer
+v6 = Vector3
+v6 = v6.new
+str4 = 0
+v6 = v6(0, 0, str4)
+local value = nil
+local flag5 = false
+str4 = getgenv
+str4 = str4()
+str4.AutoDig = false
+str4 = getgenv
+str4 = str4()
+str4.AutoFarm = false
+str4 = getgenv
+str4 = str4()
+str4.CollectTokens = false
+str4 = getgenv
+str4 = str4()
+str4.collectbubble = false
+str4 = getgenv
+str4 = str4()
+str4.placesprinkler = false
+str4 = getgenv
+str4 = str4()
+str4.convertballon = false
+str4 = getgenv
+str4 = str4()
+str4.TrainSnail = false
+str4 = getgenv
+str4 = str4()
+str4.Speed = 50
+str4 = getgenv
+str4 = str4()
+str4.AutoFarmSpeed = true
+str4 = v5.CoreStats
+str4 = str4.Pollen
+v7 = v5.CoreStats
+v7 = v7.Capacity
+local character2 = game.Players.LocalPlayer.Character
+local flag6 = false
+local v19 = nil
+local huge = math.huge
+local v20 = nil
+tbl = {}
+tbl2 = {}
+v8 = Vector3
+v8 = v8.new
+v8 = v8(-327.4613037109375, 68.4471664428711, -183.5044708251953)
+tbl2.loc = v8
+tbl.PineTreeForest = tbl2
+tbl2 = {}
+v8 = Vector3
+v8 = v8.new
+v8 = v8(-34.25540542602539, 4.447189807891846, 220.86524963378906)
+tbl2.loc = v8
+tbl.Dandelion = tbl2
+tbl2 = {}
+v8 = Vector3
+v8 = v8.new
+v8 = v8(-216.62339782714844, 4.447189807891846, 177.5602264404297)
+tbl2.loc = v8
+tbl.Sunflower = tbl2
+tbl2 = {}
+v8 = Vector3
+v8 = v8.new
+v8 = v8(-97.478515625, 4.447189807891846, 118.50936889648438)
+tbl2.loc = v8
+tbl.Mushroom = tbl2
+tbl2 = {}
+v8 = Vector3
+v8 = v8.new
+v8 = v8(148.40052795410156, 4.447190284729004, 101.38568115234375)
+tbl2.loc = v8
+tbl.Blue_Flower = tbl2
+tbl2 = {}
+v8 = Vector3
+v8 = v8.new
+v8 = v8(154.9808349609375, 33.94717788696289, 194.5747528076172)
+tbl2.loc = v8
+tbl.Clover = tbl2
+tbl2 = {}
+v8 = Vector3
+v8 = v8.new
+v8 = v8(-45.04277420043945, 20.447187423706055, -5.353416442871094)
+tbl2.loc = v8
+tbl.Spider = tbl2
+tbl2 = {}
+v8 = Vector3
+v8 = v8.new
+v8 = v8(-179.03378295898438, 20.447185516357422, -5.379249095916748)
+tbl2.loc = v8
+tbl.Strawberry = tbl2
+tbl2 = {}
+v8 = Vector3
+v8 = v8.new
+v8 = v8(132.03982543945312, 20.447189331054688, -26.6138858795166)
+tbl2.loc = v8
+tbl.Bamboo = tbl2
+tbl2 = {}
+v8 = Vector3
+v8 = v8.new
+v8 = v8(251.38278198242188, 68.4471664428711, -207.9362030029297)
+tbl2.loc = v8
+tbl.Pineapple = tbl2
+tbl2 = {}
+v8 = Vector3
+v8 = v8.new
+v8 = v8(420.14105224609375, 96.42591857910156, -174.9627685546875)
+tbl2.loc = v8
+tbl.Stump = tbl2
+tbl2 = {}
+v8 = Vector3
+v8 = v8.new
+v8 = v8(-201.85940551757812, 68.4471664428711, -184.8004608154297)
+tbl2.loc = v8
+tbl.Pumpkin = tbl2
+tbl2 = {}
+v8 = Vector3
+v8 = v8.new
+v8 = v8(-193.70953369140625, 68.4471664428711, -105.5277328491211)
+tbl2.loc = v8
+tbl.Cactus = tbl2
+tbl2 = {}
+v8 = Vector3
+v8 = v8.new
+v8 = v8(-326.4270324707031, 20.397188186645508, 126.5758056640625)
+tbl2.loc = v8
+tbl.Rose = tbl2
+tbl2 = {}
+v8 = Vector3
+v8 = v8.new
+v8 = v8(76.49232482910156, 176.4471435546875, -164.65086364746094)
+tbl2.loc = v8
+tbl.Mountain = tbl2
+tbl2 = {}
+v8 = Vector3
+v8 = v8.new
+v8 = v8(-262.40863037109375, 71.89717102050781, 466.45220947265625)
+tbl2.loc = v8
+tbl.Coconut = tbl2
+tbl2 = {}
+v8 = Vector3
+v8 = v8.new
+v8 = v8(-488.4244079589844, 123.648681640625, 535.5321655273438)
+tbl2.loc = v8
+tbl.Pepper = tbl2
+tbl2 = tbl.Sunflower
+v8 = tbl.Sunflower
+local hives = game:GetService("Workspace"):WaitForChild("Honeycombs"):GetChildren()
+local function hiveInfo(hive)
+    if not hive:IsA("Model") then return end
+    local arrow = hive:FindFirstChild("patharrow")
+    local base = arrow and arrow:FindFirstChild("Base")
+    local hiveId = hive:FindFirstChild("HiveID")
+    local owner = hive:FindFirstChild("Owner")
+    if base and hiveId and owner then
+        return base, hiveId, owner
+    end
+end
+for _, hive in ipairs(hives) do
+    local base, hiveId, owner = hiveInfo(hive)
+    if base and owner.Value == v5 then
+        v6 = base.Position + Vector3.new(0, 1, 0)
+        value = hiveId.Value
+        flag5 = true
+        break
+    end
+end
+if not flag5 then
+    for _, hive in ipairs(hives) do
+        local base, hiveId, owner = hiveInfo(hive)
+        if base and owner.Value == nil then
+            v6 = base.Position + Vector3.new(0, 1, 0)
+            value = hiveId.Value
+            break
+        end
+    end
+end
+game:GetService("ReplicatedStorage").Events.ClaimHive:FireServer(value)
+getgenv().InstantTP = true
+function Teleport_Bypass(arg)
+    local char = v5.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    if getgenv().InstantTP then
+        hrp.CFrame = CFrame.new(arg)
+        task.wait(0.15)
+    else
+        local tween = game:GetService("TweenService"):Create(hrp, TweenInfo.new(2, Enum.EasingStyle.Linear), {CFrame = CFrame.new(arg)})
+        tween:Play()
+        tween.Completed:Wait()
+    end
+end
+num = 1930
+local tbl6 = {["The Den"] = CFrame.new(323, 49, num)}
+num = 3257.2
+tbl6.Lighthouse = CFrame.new(1464.8, 356.3, num)
+num = -998.805
+tbl6.Safari = CFrame.new(111.853, 11.0005, num)
+num = -782.358
+tbl6.Bridge = CFrame.new(112.308, 11.0005, num)
+num = -2542
+tbl6["Bob's Shack"] = CFrame.new(260, 8, num)
+num = -951
+tbl6["EndTimes Cave"] = CFrame.new(113, -214, num)
+num = -801
+tbl6["The Swamp"] = CFrame.new(-1209, 132, num)
+num = 2306
+tbl6["The Cabin"] = CFrame.new(1244, 66, num)
+num = 1140
+tbl6.Volcano = CFrame.new(-1585, 625, num)
+num = -1463
+tbl6["Boxed Cars"] = CFrame.new(509, 5.2, num)
+num = 3274
+tbl6["Tiaga Peak"] = CFrame.new(1560, 410, num)
+num = -99
+tbl6["Land Store"] = CFrame.new(258, 5, num)
+num = -727
+tbl6["Link's Logic"] = CFrame.new(4605, 3, num)
+num = -42
+tbl6["Palm Island"] = CFrame.new(2549, -5, num)
+num = -1501
+tbl6["Palm Island 2"] = CFrame.new(1960, -5.9, num)
+num = -1813
+tbl6["Palm Island 3"] = CFrame.new(4344, -5.9, num)
+num = 719
+tbl6["Fine Art Shop"] = CFrame.new(5207, -166, num)
+num = -945.316
+tbl6["SnowGlow Biome"] = CFrame.new(-1086.85, -5.89978, num)
+num = 430
+tbl6.Cave = CFrame.new(3581, -179, num)
+num = 195
+isA = 919
+tbl6["Shrine Of Sight"] = CFrame.new(-1600, num, isA)
+num = 13
+isA = -1720
+tbl6["Fancy Furnishings"] = CFrame.new(491, num, isA)
+num = 3.2
+isA = -197
+tbl6.Docks = CFrame.new(1114, num, isA)
+num = 20
+isA = 1131
+tbl6["Strange Man"] = CFrame.new(1061, num, isA)
+num = -2.8
+isA = 134.734
+tbl6["Wood Dropoff"] = CFrame.new(323.406, num, isA)
+num = 59.7999
+isA = 1195.55
+tbl6["Snow Biome"] = CFrame.new(889.955, num, isA)
+num = 5
+isA = 57
+tbl6["Wood RUs"] = CFrame.new(265, num, isA)
+num = 351.174
+isA = 1475.39
+tbl6["Green Box"] = CFrame.new(-1668.05, num, isA)
+num = 2
+isA = 74
+tbl6.Spawn = CFrame.new(172, num, isA)
+num = 59.8
+isA = 1305.8
+tbl6["Cherry Meadow"] = CFrame.new(220.9, num, isA)
+num = 33.5
+isA = -978.8
+tbl6["Bird Cave"] = CFrame.new(4813.1, num, isA)
+local function disableRagdoll(character)
+    local hum = character:WaitForChild("Humanoid")
+    hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+    hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+end
+table.insert(KhangUI.Conns, v5.CharacterAdded:Connect(disableRagdoll))
+disableRagdoll(v5.Character or v5.CharacterAdded:Wait())
+function num()
+    local tbl3 = {"ToggleHoneyMaking"}
+    game:GetService("ReplicatedStorage").Events.PlayerHiveCommand:FireServer(unpack(tbl3))
+end
+MakeHoney = num
+num = nil
+isA = math
+isA = isA.huge
+cframe = nil
+player2 = Instance
+player2 = player2.new
+player2 = player2("Part", game:GetService("Workspace"))
+player2.Name = "combatcrabpart"
+player2.Anchored = true
+player2.Transparency = 1
+player2.Size = Vector3.new(90, 1, 90)
+player2.Position = Vector3.new(-257.52117919922, 105.91863250732, 457.86791992188)
+end)
+try("Farming", function()
+Farming = UI:NewTab("Farming", "6035039429")
+Farming:Section("Farming")
+Farming:DropDown("Select Field", {
+    "Sunflower",
+    "Dandelion",
+    "Mushroom",
+    "Blue_Flower",
+    "Clover",
+    "Spider",
+    "Strawberry",
+    "Bamboo",
+    "Pineapple",
+    "Stump",
+    "Pumpkin",
+    "Cactus",
+    "Rose",
+    "PineTreeForest",
+    "Mountain",
+    "Coconut",
+    "Pepper",
+}, true, function(arg)
+    tbl2 = tbl[arg]
+    FieldInfo:Set("Field: " .. arg)
+end, "Sunflower")
+FieldInfo = Farming:TextBox("Field: Sunflower")
+local v38 = nil
+local flag7 = false
+Farming:Toggle("Autofarm", false, function(arg)
+    local env = getgenv()
+    env.AutoFarm = arg
+    if not arg then
+        env.CollectTokens = false
+        env.AutoFarmSpeedOn = false
+        local hum = v5.Character and v5.Character:FindFirstChild("Humanoid")
+        if hum then hum.WalkSpeed = 16 end
+        Notify("KhangHub", "Autofarm: OFF", 2)
+    end
+    if getgenv().AutoFarm == true then
+        getgenv().FarmRun = (getgenv().FarmRun or 0) + 1
+        local myRun = getgenv().FarmRun
+        Notify("KhangHub", "Autofarm: ON", 2)
+        while getgenv().FarmRun == myRun and getgenv().KhangAlive == aliveId do
+            if not task.wait() then
+                break
+            end
+            if not (v5.Character and v5.Character:FindFirstChild("HumanoidRootPart")) then
+                continue
+            end
+            if getgenv().AutoFarm == true then
+                if str4.Value >= v7.Value then
+                    Teleport_Bypass(v6)
+                    task.wait(1)
+                    MakeHoney()
+                    local value2
+                    repeat
+                        if 10 < (v5.Character.HumanoidRootPart.Position - v6).magnitude then
+                            if getgenv().AutoFarm == false then
+                                return
+                            end
+                            Teleport_Bypass(v6)
+                            task.wait(1)
+                            if v5.PlayerGui.ScreenGui.ActivateButton.TextBox.Text == "Make Honey" then
+                                MakeHoney()
+                            end
+                        end
+                        task.wait()
+                        value2 = str4.Value
+                    until value2 == 0
+                    task.wait(5)
+                end
+                Teleport_Bypass(tbl2.loc)
+                if getgenv().placesprinkler == true then
+                    task.wait(0.5)
+                    local hum = v5.Character and v5.Character:FindFirstChild("Humanoid")
+                    if hum then hum.Jump = true end
+                    local tbl3 = {{Name = "Sprinkler Builder"}}
+                    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer(unpack(tbl3))
+                    task.wait(0.5)
+                end
+                local env2 = getgenv()
+                env2.AutoFarmSpeedOn = true
+                local env3 = getgenv()
+                env3.CollectTokens = true
+                local value3, value5
+                repeat
+                    if 65 < (v5.Character.HumanoidRootPart.Position - tbl2.loc).magnitude then
+                        Teleport_Bypass(tbl2.loc)
+                    end
+                    if getgenv().AutoFarm == false then
+                        local env4 = getgenv()
+                        env4.CollectTokens = false
+                        local env5 = getgenv()
+                        env5.AutoFarmSpeedOn = false
+                        return
+                    end
+                    task.wait()
+                    value3 = str4.Value
+                    value5 = v7.Value
+                until value3 >= value5
+                Teleport_Bypass(v6)
+                local env6 = getgenv()
+                env6.AutoFarmSpeedOn = false
+                local env7 = getgenv()
+                env7.CollectTokens = false
+                task.wait(1)
+                MakeHoney()
+                local value4
+                repeat
+                    if 10 < (v5.Character.HumanoidRootPart.Position - v6).magnitude then
+                        if getgenv().AutoFarm == false then
+                            return
+                        end
+                        Teleport_Bypass(v6)
+                        task.wait(1)
+                        if v5.PlayerGui.ScreenGui.ActivateButton.TextBox.Text == "Make Honey" then
+                            MakeHoney()
+                        end
+                    end
+                    task.wait()
+                    value4 = str4.Value
+                until value4 == 0
+                if getgenv().convertballon == true then
+                    for _, hiveBalloon in pairs(game.Workspace.Balloons.HiveBalloons:GetChildren()) do
+                        if hiveBalloon.Name == "HiveBalloonInstance" then
+                            num = (hiveBalloon.BalloonBody.Position - v5.Character.HumanoidRootPart.Position).Magnitude
+                            if num <= 25 then
+                                if num < isA then
+                                    local v = num
+                                    cframe = hiveBalloon
+                                    isA = v
+                                end
+                            end
+                        end
+                    end
+                    if cframe then
+                        local parent
+                        repeat
+                            task.wait()
+                            parent = cframe.Parent
+                        until not parent
+                        num = nil
+                        cframe = nil
+                        isA = math.huge
+                    end
+                end
+                task.wait(5)
+            end
+        end
+    end
+end)
+Farming:Section("Settings")
+Farming:Toggle("Auto Dig", false, function(arg)
+    local env = getgenv()
+    env.AutoDig = arg
+end)
+Farming:Toggle("Sprinkler", false, function(arg)
+    local env = getgenv()
+    env.placesprinkler = arg
+end)
+Farming:Toggle("Convert Ballons", false, function(arg)
+    local env = getgenv()
+    env.convertballon = arg
+end)
+Farming:Section("Extra Settings")
+Farming:Toggle("Farm Bubble", false, function(arg)
+    local env = getgenv()
+    env.collectbubble = arg
+end)
+end)
+try("Teleport", function()
+TabTeleport = UI:NewTab("Teleport", "6031154875")
+TabTeleport:Section("Locations")
+TabTeleport:DropDown("Select Location", {
+    "Sunflower",
+    "Dandelion",
+    "Mushroom",
+    "Blue_Flower",
+    "Clover",
+    "Spider",
+    "Strawberry",
+    "Bamboo",
+    "Pineapple",
+    "Stump",
+    "Pumpkin",
+    "Cactus",
+    "Rose",
+    "PineTreeForest",
+    "Mountain",
+    "Coconut",
+    "Pepper",
+}, true, function(arg)
+    v8 = tbl[arg]
+    LocInfo:Set("Location: " .. arg)
+end, "Sunflower")
+LocInfo = TabTeleport:TextBox("Location: Sunflower")
+TabTeleport:Button("Teleport to Selected Location", function(arg)
+    Teleport_Bypass(v8.loc)
+end)
+TabTeleport:Section("Your Hive")
+TabTeleport:Button("Teleport to Hive", function(arg)
+    Teleport_Bypass(v6)
+end)
+end)
+try("Scanner", function()
+    local TweenService = game:GetService("TweenService")
+    local env = getgenv()
+    env.TweenSpeed = 90
+    env.EggRadius = 100
+    env.EggWait = 3
+    env.ViciousDetect, env.ViciousTween = false, false
+    env.MushDetect, env.MushTween = false, false
+    env.EggAuto = false
+
+    local function root()
+        local c = v5.Character
+        return c and c:FindFirstChild("HumanoidRootPart")
+    end
+
+    local function partOf(inst)
+        if inst:IsA("BasePart") then return inst end
+        if inst:IsA("Model") then
+            return inst.PrimaryPart or inst:FindFirstChildWhichIsA("BasePart", true)
+        end
+    end
+
+    -- tween theo toc do (studs/giay), tu huy khi tat chuc nang
+    local function tweenTo(pos, wanted)
+        local hrp = root()
+        if not hrp then return false end
+        local t = math.clamp((hrp.Position - pos).Magnitude / env.TweenSpeed, 0.2, 15)
+        local tw = TweenService:Create(hrp, TweenInfo.new(t, Enum.EasingStyle.Linear), {CFrame = CFrame.new(pos)})
+        tw:Play()
+        local started = os.clock()
+        while os.clock() - started < t + 0.3 and tw.PlaybackState == Enum.PlaybackState.Playing do
+            if (wanted and not wanted()) or env.KhangAlive ~= aliveId then
+                tw:Cancel()
+                return false
+            end
+            task.wait(0.05)
+        end
+        return true
+    end
+
+    -- quet theo ten (khong phan biet hoa thuong); tra ve danh sach part, gan nhat truoc
+    local function scan(pattern, rootNames, deep)
+        local found, seen = {}, {}
+        local function check(inst)
+            if inst.Name:lower():find(pattern, 1, true) then
+                local p = partOf(inst)
+                if p and not seen[p] and p:IsDescendantOf(workspace) then
+                    seen[p] = true
+                    table.insert(found, p)
+                end
+            end
+        end
+        for _, n in ipairs(rootNames) do
+            local r = workspace:FindFirstChild(n)
+            if r then
+                for _, d in ipairs(r:GetDescendants()) do check(d) end
+            end
+        end
+        if #found == 0 and deep then
+            for _, d in ipairs(workspace:GetDescendants()) do check(d) end
+        end
+        local hrp = root()
+        if hrp then
+            table.sort(found, function(a, b)
+                return (a.Position - hrp.Position).Magnitude < (b.Position - hrp.Position).Magnitude
+            end)
+        end
+        return found
+    end
+
+    local fieldNames = {
+        "Sunflower", "Dandelion", "Mushroom", "Blue_Flower", "Clover", "Spider",
+        "Strawberry", "Bamboo", "Pineapple", "Stump", "Pumpkin", "Cactus", "Rose",
+        "PineTreeForest", "Mountain", "Coconut", "Pepper",
+    }
+
+    local Scan = UI:NewTab("Scanner", "")
+    Scan:Section("Vicious Bee")
+    local viciousLabel = Scan:TextBox("Vicious Bee: not scanned")
+    Scan:Toggle("Detect Vicious Bee", false, function(a) env.ViciousDetect = a end)
+    Scan:Toggle("Auto Tween to Vicious Bee", false, function(a)
+        env.ViciousTween = a
+        if a and env.AutoFarm then Notify("Scanner", "Turn off Autofarm to use tween", 3) end
+    end)
+    Scan:Section("Mushroom (Puffshroom)")
+    local mushLabel = Scan:TextBox("Mushroom: not scanned")
+    Scan:Toggle("Detect Mushroom", false, function(a) env.MushDetect = a end)
+    Scan:Toggle("Auto Tween to Mushroom", false, function(a)
+        env.MushTween = a
+        if a and env.AutoFarm then Notify("Scanner", "Turn off Autofarm to use tween", 3) end
+    end)
+    Scan:Section("Eggs")
+    local eggLabel = Scan:TextBox("Eggs: off")
+    Scan:Toggle("Auto Collect Eggs (all fields)", false, function(a)
+        env.EggAuto = a
+        if a and env.AutoFarm then Notify("Scanner", "Turn off Autofarm to use tween", 3) end
+        if not a then eggLabel:Set("Eggs: off") end
+    end)
+    Scan:Slider("Egg search radius", 100, 30, 300, false, function(v) env.EggRadius = v end)
+    Scan:Slider("Wait per field (s)", 3, 1, 10, false, function(v) env.EggWait = v end)
+    Scan:Section("Tween")
+    Scan:Slider("Tween speed", 90, 30, 200, false, function(v) env.TweenSpeed = v end)
+
+    -- vong lap quet Vicious Bee + Mushroom
+    task.spawn(function()
+        local lastVic, lastMush
+        local deepAt = {vic = 0, mush = 0}
+        while env.KhangAlive == aliveId do
+            task.wait(1)
+            local hrp = root()
+            if hrp then
+                if env.ViciousDetect or env.ViciousTween then
+                    local deep = os.clock() - deepAt.vic > 4
+                    if deep then deepAt.vic = os.clock() end
+                    local list = scan("vicious", {"Monsters", "Particles"}, deep)
+                    local p = list[1]
+                    if p then
+                        viciousLabel:Set("Vicious Bee: " .. math.floor((p.Position - hrp.Position).Magnitude) .. " studs")
+                        if lastVic ~= p then
+                            lastVic = p
+                            Notify("Scanner", "Vicious Bee found!", 4)
+                        end
+                        if env.ViciousTween and not env.AutoFarm then
+                            tweenTo(p.Position + Vector3.new(0, 6, 0), function() return env.ViciousTween end)
+                        end
+                    else
+                        lastVic = nil
+                        viciousLabel:Set("Vicious Bee: not found")
+                    end
+                end
+                if env.MushDetect or env.MushTween then
+                    local deep = os.clock() - deepAt.mush > 4
+                    if deep then deepAt.mush = os.clock() end
+                    local list = scan("puffshroom", {"Happenings"}, deep)
+                    local p = list[1]
+                    if p then
+                        mushLabel:Set("Mushroom: " .. math.floor((p.Position - hrp.Position).Magnitude) .. " studs")
+                        if lastMush ~= p then
+                            lastMush = p
+                            Notify("Scanner", "Puffshroom found!", 4)
+                        end
+                        if env.MushTween and not env.AutoFarm then
+                            tweenTo(p.Position + Vector3.new(0, 5, 0), function() return env.MushTween end)
+                        end
+                    else
+                        lastMush = nil
+                        mushLabel:Set("Mushroom: not found")
+                    end
+                end
+            end
+        end
+    end)
+
+    -- vong lap nhat trung o nhieu khu vuc
+    task.spawn(function()
+        local total = 0
+        while env.KhangAlive == aliveId do
+            task.wait(0.5)
+            if env.EggAuto and not env.AutoFarm and root() then
+                for _, field in ipairs(fieldNames) do
+                    if not env.EggAuto or env.AutoFarm or env.KhangAlive ~= aliveId then break end
+                    local info = tbl and tbl[field]
+                    if info then
+                        eggLabel:Set("Eggs: going to " .. field .. " (" .. total .. " collected)")
+                        local arrived = tweenTo(info.loc + Vector3.new(0, 5, 0), function()
+                            return env.EggAuto and not env.AutoFarm
+                        end)
+                        if arrived then
+                            local t0 = os.clock()
+                            while env.EggAuto and not env.AutoFarm and os.clock() - t0 < env.EggWait do
+                                local hrp = root()
+                                if not hrp then break end
+                                local got = false
+                                for _, e in ipairs(scan("egg", {"Collectibles", "Happenings"}, false)) do
+                                    if (e.Position - hrp.Position).Magnitude <= env.EggRadius then
+                                        local cd = e:FindFirstChildWhichIsA("ClickDetector", true)
+                                        local pp = e:FindFirstChildWhichIsA("ProximityPrompt", true)
+                                        if cd and type(fireclickdetector) == "function" then fireclickdetector(cd) end
+                                        if pp and type(fireproximityprompt) == "function" then fireproximityprompt(pp) end
+                                        tweenTo(e.Position + Vector3.new(0, 2, 0), function()
+                                            return env.EggAuto and not env.AutoFarm
+                                        end)
+                                        total = total + 1
+                                        got = true
+                                        break
+                                    end
+                                end
+                                if not got then task.wait(0.3) end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end)
+try("Items", function()
+Items = UI:NewTab("Items", "6034941708")
+Items:Section("Items")
+Items:Button("Use All Buffs [Blue Pollen]", function(arg)
+    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer({Name = "Blue Extract"})
+    wait(0.01)
+    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer({Name = "Glitter"})
+    wait(0.01)
+    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer({Name = "Glue"})
+    wait(0.01)
+    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer({Name = "Oil"})
+    wait(0.01)
+    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer({Name = "Enzymes"})
+    wait(0.01)
+    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer({Name = "Tropical TDrink"})
+end)
+Items:Button("Use All Buffs [Red Pollen]", function(arg)
+    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer({Name = "Red Extract"})
+    wait(0.01)
+    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer({Name = "Glitter"})
+    wait(0.01)
+    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer({Name = "Glue"})
+    wait(0.01)
+    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer({Name = "Oil"})
+    wait(0.01)
+    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer({Name = "Enzymes"})
+    wait(0.01)
+    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer({Name = "Tropical TDrink"})
+end)
+Items:Button("Use Blue Extract", function(arg)
+    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer({Name = "Blue Extract"})
+end)
+Items:Button("Use Red Extract", function(arg)
+    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer({Name = "Red Extract"})
+end)
+Items:Button("Use Glitter", function(arg)
+    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer({Name = "Glitter"})
+end)
+Items:Button("Use Glue", function(arg)
+    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer({Name = "Glue"})
+end)
+Items:Button("Use Oil", function(arg)
+    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer({Name = "Oil"})
+end)
+Items:Button("Use Enzymes", function(arg)
+    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer({Name = "Enzymes"})
+end)
+Items:Button("Use Tropical Drink", function(arg)
+    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer({Name = "Tropical Drink"})
+end)
+Items:Button("Use Purple Potion", function(arg)
+    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer({Name = "Purple Potion"})
+end)
+Items:Button("Use Super Smoothie", function(arg)
+    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer({Name = "Super Smoothie"})
+end)
+Items:Button("Use Marshmallow Bee", function(arg)
+    game:GetService("ReplicatedStorage").Events.PlayerActivesCommand:FireServer({Name = "Marshmallow Bee"})
+end)
+Items:Section("Dispensers")
+Items:Button("Use All Dispenserse", function(arg)
+    game:GetService("ReplicatedStorage").Events.ToyEvent:FireServer("Glue Dispenser")
+    wait(0.01)
+    game:GetService("ReplicatedStorage").Events.ToyEvent:FireServer("Wealth Clock")
+    wait(0.01)
+    game:GetService("ReplicatedStorage").Events.ToyEvent:FireServer("Coconut Dispenser")
+    wait(0.01)
+    game:GetService("ReplicatedStorage").Events.ToyEvent:FireServer("Strawberry Dispenser")
+    wait(0.01)
+    game:GetService("ReplicatedStorage").Events.ToyEvent:FireServer("Treat Dispenser")
+    wait(0.01)
+    game:GetService("ReplicatedStorage").Events.ToyEvent:FireServer("Free Ant Pass Dispenser")
+    wait(0.01)
+    game:GetService("ReplicatedStorage").Events.ToyEvent:FireServer("Blueberry Dispenser")
+    wait(0.01)
+    game:GetService("ReplicatedStorage").Events.ToyEvent:FireServer("Honey Dispenser")
+    wait(0.01)
+    game:GetService("ReplicatedStorage").Events.ToyEvent:FireServer("Free Royal Jelly Dispenser")
+end)
+end)
+try("Combat", function()
+Combat = UI:NewTab("Combat", "6034287525")
+Combat:Section("Combat")
+Combat:Toggle("Train Crab", false, function(arg)
+    if arg then
+        local combatcrabpart = game:GetService("Workspace"):FindFirstChild("combatcrabpart")
+        combatcrabpart.CanCollide = true
+        Teleport_Bypass(player2.Position + Vector3.new(0, 4.7, 0))
+    else
+        local combatcrabpart = game:GetService("Workspace"):FindFirstChild("combatcrabpart")
+        combatcrabpart.CanCollide = false
+    end
+end)
+Combat:Toggle("Train Snail", false, function(arg)
+    if arg then
+        local env = getgenv()
+        env.TrainSnail = true
+    else
+        local env = getgenv()
+        env.TrainSnail = false
+    end
+end)
+end)
+try("Setting", function()
+Tab6 = UI:NewTab("Setting", "6031280882")
+Tab6:Section("Settings")
+Tab6:KeyBind("Toggle UI", Enum.KeyCode.LeftAlt, function()
+    local g = game:GetService("CoreGui"):FindFirstChild("KhangHub")
+    if g then g.Enabled = not g.Enabled end
+end)
+Tab6:Toggle("Instant Teleport (no walking)", true, function(arg)
+    getgenv().InstantTP = arg
+end)
+Tab6:Slider("AutoFarm Speed", 50, 16, 150, false, function(arg)
+    local env = getgenv()
+    env.Speed = arg
+end)
+Tab6:Button("Unload Khang Hub", function()
+    local env = getgenv()
+    env.AutoFarm = false
+    env.FarmRun = (env.FarmRun or 0) + 1
+    env.KhangAlive = (env.KhangAlive or 0) + 1
+    env.AutoDig = false
+    env.CollectTokens = false
+    env.TrainSnail = false
+    env.AutoFarmSpeed = false
+    env.AutoFarmSpeedOn = false
+    env.ViciousDetect, env.ViciousTween = false, false
+    env.MushDetect, env.MushTween = false, false
+    env.EggAuto = false
+    local part = workspace:FindFirstChild("combatcrabpart")
+    if part then part:Destroy() end
+    local hum = v5.Character and v5.Character:FindFirstChild("Humanoid")
+    if hum then hum.WalkSpeed = 16 end
+    KhangUI.Unload()
+end)
+Tab6:Toggle("Loop AutoFarm Speed", true, function(arg)
+    local env = getgenv()
+    env.AutoFarmSpeed = arg
+end)
+end)
+Notify("KhangHub", "Welcome back!", 3)
+Teleport_Bypass(v6)
+if not game:GetService("UserInputService").KeyboardEnabled then
+    if game.CoreGui:FindFirstChild("DogentScreenGui") then
+        game.CoreGui.DogentScreenGui:Destroy()
+    end
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "DogentScreenGui"
+    local CoreGui = game:GetService("CoreGui")
+    screenGui.Parent = CoreGui
+    local textButton = Instance.new("TextButton")
+    textButton.Name = "Open"
+    textButton.Parent = screenGui
+    textButton.BackgroundColor3 = Color3.fromRGB(29, 29, 35)
+    textButton.BorderColor3 = Color3.fromRGB(29, 29, 35)
+    textButton.Position = UDim2.new(0.00529315186, 0, 0.41107837, 0)
+    textButton.Size = UDim2.new(0, 61, 0, 32)
+    textButton.Font = Enum.Font.BuilderSansBold
+    textButton.Text = "Open/Close"
+    textButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    textButton.TextSize = 11
+    textButton.Active = true
+    textButton.Draggable = false
+    local uICorner = Instance.new("UICorner")
+    uICorner.CornerRadius = UDim.new(0, 3)
+    uICorner.Parent = textButton
+    textButton.MouseButton1Click:Connect(function()
+        local khangHub = game:GetService("CoreGui"):FindFirstChild("KhangHub")
+        if khangHub then
+            khangHub.Enabled = not khangHub.Enabled
+        end
+    end)
+end
+task.spawn(function()
+    while getgenv().KhangAlive == aliveId do
+        if not task.wait() then
+            break
+        end
+        local lp = game.Players.LocalPlayer
+        if not (lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") and lp.Character:FindFirstChild("Humanoid")) then
+            continue
+        end
+        if getgenv().AutoDig == true then
+            game:GetService("ReplicatedStorage").Events.ToolCollect:FireServer()
+        end
+    end
+end)
+task.spawn(function()
+    while getgenv().KhangAlive == aliveId do
+        if not task.wait() then
+            break
+        end
+        local lp = game.Players.LocalPlayer
+        if not (lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") and lp.Character:FindFirstChild("Humanoid")) then
+            continue
+        end
+        if getgenv().AutoFarmSpeed == true then
+            if getgenv().AutoFarmSpeedOn == true then
+                local humanoid = game.Players.LocalPlayer.Character:WaitForChild("Humanoid")
+                humanoid.WalkSpeed = getgenv().Speed
+            end
+        end
+    end
+end)
+task.spawn(function()
+    while getgenv().KhangAlive == aliveId do
+        if not task.wait() then
+            break
+        end
+        local lp = game.Players.LocalPlayer
+        if not (lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") and lp.Character:FindFirstChild("Humanoid")) then
+            continue
+        end
+        if getgenv().CollectTokens then
+            for _, collectible in pairs(game:GetService("Workspace").Collectibles:GetDescendants()) do
+                if collectible:IsA("Part") then
+                    if (game.Players.LocalPlayer.Character.HumanoidRootPart.Position - collectible.Position).Magnitude < 50 then
+                        game.Players.LocalPlayer.Character.Humanoid:MoveTo(collectible.Position)
+                        if getgenv().collectbubble == true then
+                            for _, particle in pairs(game:GetService("Workspace").Particles:GetChildren()) do
+                                if particle:IsA("Part") then
+                                    if particle.Name == "Bubble" then
+                                        if (game.Players.LocalPlayer.Character.HumanoidRootPart.Position - particle.Position).Magnitude < 60 then
+                                            game.Players.LocalPlayer.Character.Humanoid:MoveTo(particle.Position)
+                                            break
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            task.wait(0.6)
+        end
+    end
+end)
+task.spawn(function()
+    while getgenv().KhangAlive == aliveId do
+        if not task.wait() then
+            break
+        end
+        local lp = game.Players.LocalPlayer
+        if not (lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") and lp.Character:FindFirstChild("Humanoid")) then
+            continue
+        end
+        if getgenv().TrainSnail == true then
+            if 30 < (v5.Character.HumanoidRootPart.Position - Vector3.new(422.6567687988281, 96.42591857910156, -175.72012329101562)).magnitude then
+                Teleport_Bypass(Vector3.new(422.6567687988281, 96.42591857910156, -175.72012329101562))
+            end
+        end
+    end
+end)
+local fieldDecos = workspace:FindFirstChild("FieldDecos")
+if fieldDecos then
+    local list = {fieldDecos}
+    while true do
+        if not (#list > 0) then
+            break
+        end
+        for _, child in pairs(table.remove(list):GetChildren()) do
+            if child:IsA("BasePart") then
+                child.CanCollide = false
+                child.Transparency = 0.5
+            elseif child:IsA("Model") then
+                table.insert(list, child)
+            end
+        end
+    end
+end
+local idleConn = game:GetService("Players").LocalPlayer.Idled:Connect(function()
+    local vu = game:GetService("VirtualUser")
+    vu:CaptureController()
+    vu:ClickButton2(Vector2.new())
+end)
+table.insert(KhangUI.Conns, idleConn)
